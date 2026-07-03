@@ -5,6 +5,7 @@ classDiagram
     -dict preferences
     +add_pet(pet)
     +get_pets() List
+    +get_plans() List
   }
   class Pet {
     -str pet_id
@@ -13,25 +14,51 @@ classDiagram
     -str owner_id
     +add_task(task)
     +get_tasks() List
+    +add_plan(plan)
+    +get_plans() List
   }
   class Task {
     -str task_id
     -str name
     -int duration_minutes
-    -str priority
-    -str recurrence
+    -PriorityEnum priority
+    -RecurrenceEnum recurrence
     -str pet_id
     +is_recurring() bool
+    +get_pet() Pet
+  }
+  class PlanEntry {
+    -str entry_id
+    -str task_id
+    -str plan_id
+    -time start_time
+    -time end_time
+    -str status
+    +overlaps_with(other) bool
+    +mark_complete()
   }
   class Plan {
     -str plan_id
     -date date
     -str pet_id
+    -int available_minutes
     +add_entry(entry)
     +total_duration() int
     +explain() str
+    +get_entries() List
+  }
+  class Scheduler {
+    +generate_plan(pet, available_minutes, date) Plan
+    +sort_by_priority(tasks) List
+    +filter_by_time(tasks, minutes) List
+    +detect_conflicts(entries) List
   }
 
   Owner "1" --> "*" Pet : owns
   Pet "1" --> "*" Task : has
-  Plan "1" --> "*" Task : contains
+  Pet "1" --> "*" Plan : tracks
+  Task "1" --> "*" PlanEntry : scheduled as
+  Plan "1" --> "*" PlanEntry : contains
+  Scheduler ..> Pet : reads
+  Scheduler ..> Task : reads
+  Scheduler ..> Plan : creates
