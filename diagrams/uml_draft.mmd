@@ -1,0 +1,37 @@
+classDiagram
+  class Owner {
+    -str owner_id
+    -str name
+    -dict preferences
+    +add_pet(pet)
+    +get_pets() List
+  }
+  class Pet {
+    -str pet_id
+    -str name
+    -str species
+    -str owner_id
+    +add_task(task)
+    +get_tasks() List
+  }
+  class Task {
+    -str task_id
+    -str name
+    -int duration_minutes
+    -str priority
+    -str recurrence
+    -str pet_id
+    +is_recurring() bool
+  }
+  class Plan {
+    -str plan_id
+    -date date
+    -str pet_id
+    +add_entry(entry)
+    +total_duration() int
+    +explain() str
+  }
+
+  Owner "1" --> "*" Pet : owns
+  Pet "1" --> "*" Task : has
+  Plan "1" --> "*" Task : contains
