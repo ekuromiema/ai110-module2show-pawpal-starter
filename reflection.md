@@ -4,14 +4,29 @@
 
 **a. Initial design**
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+Owner -  represents the person using the app. It holds their ID, name, and preference dictionary, and keeps a list of Pets
+
+Pets - represents the actual animal. Belongs to one Owner and keeps list of its Task objexts
+
+Task - represents one care activity. It is a template for what the task is and not the schedule (holds name, duration, priority, and recurrence). 
+
+Plan - represents a finished daily schedule for one per on a single day. Holds list of Task objects and has a method, explain, that returns a string describing the plan
 
 **b. Design changes**
 
-- Did your design change during implementation?
-- If yes, describe at least one change and why you made it.
+Based on Ai feedback here are the changes that I made:
 
+Owner - Added get_plans() so you can get from an Owner down to their schedules directly, instead of having to go through each Pet manually.
+
+Pet - Made it so Pet also keeps a list of Plans because the UI needs to be able to show all of a Pet past plans without it you'd have no way to find plans from the pet side.
+
+Task - Changed priority and recurrence from plain strings to enums so that values like "kinda important" get rejected instead of breaking scheduling logic.
+
+PlanEntry (new) - represents one task as it appears in a specific plan, with a start time, end time, and completion status. Added because Plan was holding raw Task objects, which meant there was nowhere to record when something was scheduled or if it got done without modifying the original Task.
+
+Plan - Holds a list of PlanEntry objects instead of raw Tasks, and has a new available_minutes attribute. Added the time budget here because the scheduler needs to know the constraint before filtering tasks, and the plan should remember it for when explain() describes why certain tasks were left out.
+
+Scheduler (new) - the brain of the app. Takes a pet, a time budget, and a date, and creats the finished Plan. Added because nothing in the original four classes was actually responsible for building a schedule - would have ended up crammed into Plan making it messy and hard to test.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
