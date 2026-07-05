@@ -42,6 +42,19 @@ pip install -r requirements.txt
 6. Connect your logic to the Streamlit UI in `app.py`.
 7. Refine UML so it matches what you actually built.
 
+## ✨ Features
+
+The scheduling engine (`Scheduler` in `pawpal_system.py`) implements the following algorithms:
+
+- **Sorting by priority** — orders tasks from `critical` → `low`; ties keep their original order (stable sort).
+- **Sorting by time** — orders tasks by scheduled clock time (earliest first), pushing untimed tasks to the end.
+- **Status filtering** — shows only tasks in a given state (e.g. `pending` vs `complete`).
+- **Pet filtering** — filters tasks by a pet's name or its raw `pet_id`.
+- **Time-budgeted planning** — greedily packs the highest-priority tasks that fit within the minutes available for the day, dropping ones that don't.
+- **Conflict warnings** — flags tasks whose time windows overlap on the same day, *including across different pets* (an owner can't be in two places at once).
+- **Daily / weekly / monthly recurrence** — completing a recurring task automatically generates the next pending occurrence (next day / +7 days / +30 days).
+- **Daily schedule generation** — lays out a prioritized, back-to-back plan starting at 08:00 that never runs past midnight, and can explain its reasoning in plain text.
+
 ## 🖥️ Sample Output
 
 ```
@@ -130,12 +143,62 @@ tests\test_pawpal.py .............................                              
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+PawPal+ runs as a Streamlit web app. Launch it with:
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+```bash
+streamlit run app.py
+```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+### What you can do in the UI
+
+- **Set the owner** — edit the owner's name at the top.
+- **Add pets** — enter a name and species and click **Add pet**; switch between pets with the **Active pet** selector.
+- **Add tasks** — for the active pet, set a title, priority, duration, recurrence, an optional due date, and an optional scheduled time.
+- **Sort & filter the task list** — reorder tasks by **priority** or **scheduled time**, and filter to show `all`, `pending`, or `complete` tasks. The list renders as a clean table.
+- **See conflict warnings** — a dedicated section scans every pet's tasks and warns about overlapping times.
+- **Build a schedule** — set the minutes available today and click **Generate schedule** to get a prioritized, time-bounded plan with a plain-text explanation.
+
+### Example workflow
+
+1. **Add a pet** — type `Biscuit`, choose `dog`, and click **Add pet**.
+2. **Add a couple of tasks** — e.g. `Breakfast` (critical, 10 min, daily, 08:00) and `Morning walk` (high, 30 min, daily, 08:00).
+3. **Review the task list** — sort by **priority** to see `Breakfast` rise above `Morning walk`.
+4. **Check conflicts** — because both tasks are scheduled at 08:00, the **Schedule Conflicts** section shows a warning that they overlap.
+5. **Generate today's schedule** — set `60` minutes available and click **Generate schedule**. PawPal+ lays the tasks out back-to-back from 08:00 and shows the total scheduled time.
+6. **Complete a recurring task** — marking a daily task done automatically queues its copy for tomorrow.
+
+### Key `Scheduler` behaviors on display
+
+- **Priority sorting** puts `critical` tasks first, so the most important care happens earliest.
+- **Time budgeting** keeps only the tasks that fit the minutes available, dropping the rest.
+- **Conflict warnings** surface overlapping times before you commit to a plan.
+- **Recurrence** rolls completed daily/weekly/monthly tasks forward to their next occurrence.
+
+### Sample CLI output
+
+`main.py` builds a small demo world (one owner, two pets, several tasks) and prints each pet's generated schedule:
+
+```bash
+python main.py
+```
+
+```
+================================================
+Today's Schedule — 2026-07-04
+Owner: Alex
+================================================
+
+Daily plan for Biscuit (Golden Retriever):
+  08:00 — Breakfast (10 min) [priority: critical]
+  08:10 — Morning walk (30 min) [priority: high]
+  08:40 — Nail trim (15 min) [priority: low]
+  Total scheduled time: 55 min
+
+Daily plan for Mochi (Tabby Cat):
+  08:00 — Medication (5 min) [priority: critical]
+  08:05 — Feeding (10 min) [priority: high]
+  08:15 — Play session (20 min) [priority: medium]
+  Total scheduled time: 35 min
+```
+
+Notice the ordering: within each pet, `critical` tasks are scheduled first and lower-priority tasks follow — the priority-sorting algorithm in action.

@@ -33,8 +33,7 @@ Scheduler (new) - the brain of the app. Takes a pet, a time budget, and a date, 
 
 **a. Constraints and priorities**
 
-- What constraints does your scheduler consider (for example: time, priority, preferences)?
-- How did you decide which constraints mattered most?
+The scheduler considers two main constraints: the time available in the day and each task's priority. When it builds a plan it first sorts the tasks by priority (critical → low), then uses filter_by_time to keep only the tasks that fit the time budget, and drops the rest. I decided priority mattered most because on a busy day the important stuff has to get done, so I used it as the cutoff after priority sets the order. 
 
 **b. Tradeoffs**
 
@@ -46,8 +45,6 @@ The filter_by_time method in pawpal_system.py decides which tasks make the plan 
 
 **a. How you used AI**
 
-- How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
-- What kinds of prompts or questions were most helpful?
 AI was used to help verify and clean up my initial backend structure, implement core implementation, debug algorithms, answer questions I had, and write doclines and test cases for my methods.
 
 **b. Judgment and verification**
@@ -60,13 +57,11 @@ One suggestion the AI made that I didn't implement was to update the owner name 
 
 **a. What you tested**
 
-- What behaviors did you test?
-- Why were these tests important?
+I focused my tests on the core scheduling algorithms since that's where the actual logic lives. I tested sorting, filtering, recurrence, conflict detection, the time budget, and plan generation. These mattered because they're the parts a user relies on to be correct. If sorting or the time budget is off, the daily plan is wrong, and if conflict detection or recurrence break, the app gives misleading results.
 
 **b. Confidence**
 
-- How confident are you that your scheduler works correctly?
-- What edge cases would you test next if you had more time?
+I am pretty confident! I have 29 passing tests that cover the main behaviors plus a few edge cases. Testing also caught a bug, a task scheduled late in the day that would run past midnight was wrapping around to the early morning and producing a negative duration. I fixed it so those tasks get isn't included in the schedule instead.
 
 ---
 
@@ -74,12 +69,12 @@ One suggestion the AI made that I didn't implement was to update the owner name 
 
 **a. What went well**
 
-- What part of this project are you most satisfied with?
+Something that went well and really helped me throughout this process was how I split the fuctions of the Schedule class into two other classes Plan and PlanEntry, instead of one. Keeping the plan (the overall day) separate from the individual scheduled entries (each task with its own start time, end time, and status) made the code a lot cleaner and easier to read and debug.
 
 **b. What you would improve**
 
-- If you had another iteration, what would you improve or redesign?
+I would probably improve on the UI. The backend is pretty sound but the UI is very plain and boring so if I had more time I would put that towards the frontend.
 
 **c. Key takeaway**
 
-- What is one important thing you learned about designing systems or working with AI on this project?
+One thing I learned is that it is important to have a clear and detailed UML design because it makes the whole process of writing code much easier and smoother.

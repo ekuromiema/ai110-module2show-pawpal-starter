@@ -1,0 +1,105 @@
+classDiagram
+    %% Final UML — reflects the implementation in pawpal_system.py.
+
+    class PriorityEnum {
+        <<enumeration>>
+        LOW
+        MEDIUM
+        HIGH
+        CRITICAL
+    }
+    class RecurrenceEnum {
+        <<enumeration>>
+        NONE
+        DAILY
+        WEEKLY
+        MONTHLY
+    }
+
+    class Owner {
+        -str owner_id
+        -str name
+        -dict preferences
+        -List~Pet~ _pets
+        +add_pet(pet)
+        +get_pets() List
+        +get_all_tasks() List
+        +get_plans() List
+    }
+    class Pet {
+        -str pet_id
+        -str name
+        -str species
+        -str owner_id
+        -List~Task~ _tasks
+        -List~Plan~ _plans
+        +add_task(task)
+        +get_tasks() List
+        +add_plan(plan)
+        +get_plans() List
+    }
+    class Task {
+        -str task_id
+        -str name
+        -int duration_minutes
+        -PriorityEnum priority
+        -RecurrenceEnum recurrence
+        -str pet_id
+        -time scheduled_time
+        -date due_date
+        -str status
+        -Pet _pet
+        +is_recurring() bool
+        +is_complete() bool
+        +next_occurrence() Task
+        +mark_complete() Task
+        +get_pet() Pet
+    }
+    class PlanEntry {
+        -str entry_id
+        -str task_id
+        -str plan_id
+        -time start_time
+        -time end_time
+        -str status
+        -Task task
+        +duration_minutes() int
+        +overlaps_with(other) bool
+        +mark_complete()
+    }
+    class Plan {
+        -str plan_id
+        -date date
+        -str pet_id
+        -int available_minutes
+        -List~PlanEntry~ _entries
+        -Pet pet
+        +add_entry(entry)
+        +total_duration() int
+        +explain() str
+        +get_entries() List
+    }
+    class Scheduler {
+        +sort_by_priority(tasks) List
+        +sort_by_time(tasks) List
+        +filter_by_status(tasks, status) List
+        +filter_by_pet(tasks, pet_name) List
+        +filter_by_time(tasks, minutes) List
+        +detect_time_conflicts(tasks) List
+        +detect_conflicts(entries) List
+        +generate_plan(pet, available_minutes, date) Plan
+    }
+
+    Owner "1" --> "*" Pet : owns
+    Pet "1" --> "*" Task : has
+    Pet "1" --> "*" Plan : tracks
+    Task "*" --> "0..1" Pet : belongs to
+    Plan "1" *-- "*" PlanEntry : contains
+    PlanEntry "*" --> "1" Task : schedules
+    Task ..> Task : next_occurrence
+    Task --> PriorityEnum : prioritized by
+    Task --> RecurrenceEnum : repeats by
+    Scheduler ..> Pet : reads
+    Scheduler ..> Task : sorts / filters
+    Scheduler ..> PlanEntry : checks conflicts
+    Scheduler ..> Plan : creates
