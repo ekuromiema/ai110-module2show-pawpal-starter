@@ -59,6 +59,10 @@ _RECURRENCE_DELTA: dict[RecurrenceEnum, timedelta | None] = {
 # Default clock time the scheduler starts laying out a day's entries.
 DEFAULT_START_TIME = time(8, 0)
 
+# Minutes from midnight to midnight. A single-day plan can't extend past this,
+# so any entry must finish at or before it — see Scheduler.generate_plan.
+END_OF_DAY = 24 * 60
+
 
 def _minutes_since_midnight(t: time) -> int:
     """Return the number of minutes from 00:00 to ``t``."""
@@ -447,6 +451,13 @@ class Scheduler:
         current = DEFAULT_START_TIME
         for index, task in enumerate(fitted):
             start = current
+            # A single-day plan ends at midnight. If this task would run past
+            # it, skip it rather than let _add_minutes wrap the end time back
+            # into the small hours (which would yield a negative duration).
+            # time objects can't represent 24:00, so we require the end to fall
+            # strictly before midnight.
+            if _minutes_since_midnight(start) + task.duration_minutes >= END_OF_DAY:
+                continue
             end = _add_minutes(start, task.duration_minutes)
             entry = PlanEntry(
                 entry_id=f"{plan_id}-e{index}",

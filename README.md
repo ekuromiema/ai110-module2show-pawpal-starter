@@ -44,8 +44,6 @@ pip install -r requirements.txt
 
 ## 🖥️ Sample Output
 
-Paste a sample of your app's CLI or Streamlit output here so a reader can see what a generated plan looks like:
-
 ```
 ================================================
 Today's Schedule — 2026-07-04
@@ -69,16 +67,56 @@ Daily plan for Mochi (Tabby Cat):
 
 ```bash
 # Run the full test suite:
-pytest
-
-# Run with coverage:
-pytest --cov
+python -m pytest
 ```
+
+Test Description:
+
+Core object behavior
+Marking a PlanEntry complete flips its status.
+Adding a task to a Pet grows its task list.
+
+Sorting
+sort_by_priority orders critical→low, and is stable on ties (equal priorities keep input order).
+sort_by_time orders earliest-first and pushes untimed tasks to the end.
+Both sorts handle an empty list without erroring.
+
+Filtering
+filter_by_status keeps only matching statuses.
+filter_by_pet matches by pet name or raw pet_id, and matches all pets sharing a name (documents that name isn't unique).
+
+Recurring tasks
+Completing a daily task creates a pending copy due the next day; weekly rolls +7 days.
+Monthly uses a flat 30-day delta (Jan 31 → Mar 2 — pins the documented approximation).
+No due_date falls back to today + one interval.
+Completing twice keeps advancing the date.
+One-off (non-recurring) tasks return no follow-up.
+
+Conflict detection
+Flags overlapping tasks and identical start times on the same day.
+Does not flag back-to-back tasks, different days, or same time on different days.
+Skips untimed tasks instead of crashing.
+
+Time budgeting (filter_by_time)
+Drops a task larger than the budget, keeps an exact fit, keeps nothing on a zero budget, and greedily packs a smaller task even after skipping an over-budget one.
+
+Plan generation
+Empty pet → empty plan with a "(no tasks scheduled)" summary.
+Lays entries out back-to-back from 08:00.
+The midnight-wrap fix: a task that can't finish before midnight is dropped, and no entry ever ends before it starts.
 
 Sample test output:
 
 ```
-# Paste your pytest output here
+=============================================================================== test session starts ================================================================================
+platform win32 -- Python 3.13.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\Owner\ai110-module2show-pawpal-starter
+plugins: anyio-4.14.1
+collected 29 items                                                                                                                                                                  
+
+tests\test_pawpal.py .............................                                                                                                                            [100%]
+
+================================================================================ 29 passed in 0.08s ================================================================================
 ```
 
 ## 📐 Smarter Scheduling
