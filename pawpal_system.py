@@ -15,7 +15,7 @@ Relationships (from UML):
 
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from enum import Enum
 
 
@@ -45,6 +45,17 @@ _PRIORITY_ORDER: dict[PriorityEnum, int] = {
     PriorityEnum.CRITICAL: 4,
 }
 
+# How far ahead each recurrence type repeats. Expressed as timedelta so date
+# arithmetic (including month/year rollovers) is handled correctly by datetime.
+# NONE maps to None — a one-off task has no "next" occurrence. MONTHLY uses a
+# 30-day approximation, which is fine for a lightweight day-to-day planner.
+_RECURRENCE_DELTA: dict[RecurrenceEnum, timedelta | None] = {
+    RecurrenceEnum.NONE: None,
+    RecurrenceEnum.DAILY: timedelta(days=1),
+    RecurrenceEnum.WEEKLY: timedelta(weeks=1),
+    RecurrenceEnum.MONTHLY: timedelta(days=30),
+}
+
 # Default clock time the scheduler starts laying out a day's entries.
 DEFAULT_START_TIME = time(8, 0)
 
@@ -63,6 +74,12 @@ def _add_minutes(t: time, minutes: int) -> time:
 def _minutes_between(start: time, end: time) -> int:
     """Return the number of minutes from ``start`` to ``end``."""
     return _minutes_since_midnight(end) - _minutes_since_midnight(start)
+
+
+def _pet_label(task: "Task") -> str:
+    """Return a friendly name for a task's pet (pet name, else its id)."""
+    pet = task.get_pet()
+    return pet.name if pet is not None else task.pet_id
 
 
 class Owner:
@@ -137,6 +154,9 @@ class Task:
         priority: PriorityEnum,
         recurrence: RecurrenceEnum,
         pet_id: str,
+        scheduled_time: time | None = None,
+        due_date: date | None = None,
+        status: str = "pending",
     ):
         self.task_id: str = task_id
         self.name: str = name
@@ -144,11 +164,56 @@ class Task:
         self.priority: PriorityEnum = priority
         self.recurrence: RecurrenceEnum = recurrence
         self.pet_id: str = pet_id
+        # Clock time this task is meant to happen (used for sorting and
+        # conflict detection). Optional so existing callers keep working.
+        self.scheduled_time: time | None = scheduled_time
+        # Calendar day this task is due; drives recurrence roll-forward.
+        self.due_date: date | None = due_date
+        self.status: str = status
         self._pet: Pet | None = None  # set by Pet.add_task
 
     def is_recurring(self) -> bool:
         """Return True if this task repeats on a schedule."""
         return self.recurrence != RecurrenceEnum.NONE
+
+    def is_complete(self) -> bool:
+        """Return True if this task has been marked complete."""
+        return self.status == "complete"
+
+    def next_occurrence(self) -> "Task | None":
+        """Return a fresh, pending copy of this task on its next due date.
+
+        Non-recurring tasks return ``None``. The next due date is computed
+        from this task's ``due_date`` (falling back to today when unset) plus
+        one recurrence interval, using ``datetime.timedelta`` so that a daily
+        task rolls to *today + 1 day*, a weekly task to *+7 days*, and month
+        boundaries are handled by datetime rather than manual arithmetic.
+        """
+        delta = _RECURRENCE_DELTA[self.recurrence]
+        if delta is None:
+            return None
+        base = self.due_date if self.due_date is not None else date.today()
+        return Task(
+            task_id=f"{self.task_id}-next",
+            name=self.name,
+            duration_minutes=self.duration_minutes,
+            priority=self.priority,
+            recurrence=self.recurrence,
+            pet_id=self.pet_id,
+            scheduled_time=self.scheduled_time,
+            due_date=base + delta,
+            status="pending",
+        )
+
+    def mark_complete(self) -> "Task | None":
+        """Mark this task done and, if recurring, return its next occurrence.
+
+        Returns the newly created follow-up task — already dated for the next
+        day/week/month — so the caller can attach it to the pet. Returns
+        ``None`` for a one-off task, which simply stays complete.
+        """
+        self.status = "complete"
+        return self.next_occurrence()
 
     def get_pet(self) -> "Pet | None":
         """Return the pet this task belongs to, if it has been attached."""
@@ -261,6 +326,71 @@ class Scheduler:
             key=lambda task: _PRIORITY_ORDER[task.priority],
             reverse=True,
         )
+
+    def sort_by_time(self, tasks: list["Task"]) -> list["Task"]:
+        """Return tasks ordered by their scheduled clock time (earliest first).
+
+        Tasks without a ``scheduled_time`` sort to the end so a partially
+        planned day still renders in a sensible order.
+        """
+        return sorted(
+            tasks,
+            key=lambda task: (
+                _minutes_since_midnight(task.scheduled_time)
+                if task.scheduled_time is not None
+                else 24 * 60
+            ),
+        )
+
+    def filter_by_status(self, tasks: list["Task"], status: str) -> list["Task"]:
+        """Return only the tasks whose status matches ``status``.
+
+        Example: ``filter_by_status(tasks, "pending")`` to hide finished chores.
+        """
+        return [task for task in tasks if task.status == status]
+
+    def filter_by_pet(self, tasks: list["Task"], pet_name: str) -> list["Task"]:
+        """Return only the tasks belonging to the given pet.
+
+        Matches on the attached pet's name when available, and also accepts a
+        raw ``pet_id`` so it works whether or not the task has been linked to a
+        Pet object yet.
+        """
+        matches: list[Task] = []
+        for task in tasks:
+            pet = task.get_pet()
+            if (pet is not None and pet.name == pet_name) or task.pet_id == pet_name:
+                matches.append(task)
+        return matches
+
+    def detect_time_conflicts(self, tasks: list["Task"]) -> list[str]:
+        """Return warning messages for tasks whose scheduled times overlap.
+
+        A lightweight pairwise scan: two tasks conflict when they fall on the
+        same due date and their ``[start, start + duration)`` windows overlap —
+        whether they belong to the same pet or different pets. Tasks missing a
+        ``scheduled_time`` are skipped rather than raising, so an incomplete
+        schedule produces warnings instead of crashing the program.
+        """
+        timed = [task for task in tasks if task.scheduled_time is not None]
+        warnings: list[str] = []
+        for i in range(len(timed)):
+            for j in range(i + 1, len(timed)):
+                a, b = timed[i], timed[j]
+                if a.due_date != b.due_date:
+                    continue
+                a_start = _minutes_since_midnight(a.scheduled_time)
+                b_start = _minutes_since_midnight(b.scheduled_time)
+                a_end = a_start + a.duration_minutes
+                b_end = b_start + b.duration_minutes
+                if a_start < b_end and b_start < a_end:
+                    warnings.append(
+                        f"⚠️ Conflict: '{a.name}' ({_pet_label(a)}) at "
+                        f"{a.scheduled_time.strftime('%H:%M')} overlaps "
+                        f"'{b.name}' ({_pet_label(b)}) at "
+                        f"{b.scheduled_time.strftime('%H:%M')}."
+                    )
+        return warnings
 
     def filter_by_time(self, tasks: list["Task"], minutes: int) -> list["Task"]:
         """Return the leading tasks that fit within ``minutes`` of budget.

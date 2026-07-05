@@ -14,7 +14,7 @@ Plan - represents a finished daily schedule for one per on a single day. Holds l
 
 **b. Design changes**
 
-Based on Ai feedback here are the changes that I made:
+Based on AI feedback here are the changes that I made:
 
 Owner - Added get_plans() so you can get from an Owner down to their schedules directly, instead of having to go through each Pet manually.
 
@@ -38,8 +38,7 @@ Scheduler (new) - the brain of the app. Takes a pet, a time budget, and a date, 
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+The filter_by_time method in pawpal_system.py decides which tasks make the plan when there isn't enough time for all of them. It takes in the tasks in priority order and keeps each one as long as it still fits in the remaining budget. It doesn't try to find the best possible combination of tasks to fill the time. It just takes them as they come. But this is reasonable for this sceanario because not only would a more "optimal" version be a lot more complex and likey slower to compute, this system actually makes the most sense realistically. You would want to do the more important tasks first!
 
 ---
 
@@ -49,11 +48,11 @@ Scheduler (new) - the brain of the app. Takes a pet, a time budget, and a date, 
 
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
+AI was used to help verify and clean up my initial backend structure, implement core implementation, debug algorithms, answer questions I had, and write doclines and test cases for my methods.
 
 **b. Judgment and verification**
 
-- Describe one moment where you did not accept an AI suggestion as-is.
-- How did you evaluate or verify what the AI suggested?
+One suggestion the AI made that I didn't implement was to update the owner name attribute explictily. I rejected this mostly because I thought it was unnecessary as it is unlikely the user would want to change their name.
 
 ---
 
